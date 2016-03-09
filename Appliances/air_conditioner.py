@@ -4,7 +4,7 @@ Module with all the air conditioner parameters, an some functions related to it
 """
 import numpy as np
 from constants import Constants
-from appliance_type_1 import ApplianceType1
+from Appliances.appliance_type_1 import ApplianceType1
 from demand_response import Demand
 
 __author__ = 'jorge'

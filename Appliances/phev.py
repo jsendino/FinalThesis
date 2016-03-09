@@ -2,7 +2,7 @@
 import numpy as np
 
 from constants import Constants
-from appliance_type_2 import ApplianceType2
+from Appliances.appliance_type_2 import ApplianceType2
 
 __author__ = 'jorge'
 

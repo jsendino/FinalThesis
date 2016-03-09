@@ -4,7 +4,7 @@ Module with necessary parameters to define a washer type appliance and the funct
 """
 import numpy as np
 
-from appliance_type_2 import ApplianceType2
+from Appliances.appliance_type_2 import ApplianceType2
 from constants import Constants
 
 __author__ = 'jorge'

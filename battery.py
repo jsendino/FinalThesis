@@ -155,11 +155,13 @@ class Battery:
         """
         from demand_response import Demand
         from cost import Cost
+        final_price = np.zeros(Constants.day_hours.size)
         for t in range(0, Constants.day_hours.size):
             # Boolean array indicating which houses have consumed above its battery's capacity
             discharging_houses, required_demand, selling_houses, supply = cls.get_market_participants(iteration, t)
 
             if all(supply) == 0:
+                final_price[t] = float('nan')
                 continue
 
             # Given the houses that are going to sell energy, compute for each one the new market_price
@@ -174,7 +176,7 @@ class Battery:
             # If demand overcomes supply, all sellers are going to sell all their charge. As they do not have to compete
             # with their neighbours, price can just be set a differential below the market price
             if required_demand >= np.sum(supply):
-                final_price = market_price - Cost.delta
+                final_price[t] = market_price - Cost.delta
                 cls.charge_rate[new_selling_houses, t] -= supply
                 cls.charge_rate[discharging_houses, t] += np.sum(supply) / discharging_houses.size
             # Else, sellers have to compete. Buyers will start buying from the lowest price house until all demand is
@@ -188,7 +190,7 @@ class Battery:
                 # Find which is the seller that is the last to sell (that seller that fulfills all required demand)
                 last_seller = np.where(np.cumsum(supply_ordered) >= required_demand)[0][0]
 
-                final_price = new_house_price[last_seller] - Cost.delta
+                final_price[t] = new_house_price[last_seller] - Cost.delta
 
                 # Perform charge exchange
                 cls.charge_rate[selling_houses[range(0, last_seller)], t] -= supply_ordered[range(0, last_seller)]
@@ -231,10 +233,7 @@ class Battery:
             Battery.check_battery(household, iteration)
             Demand.use_battery(household, iteration)
 
-        if 'final_price' in locals():
-            return final_price
-        else:
-            return float('nan')
+        return final_price
 
     @classmethod
     def filter_selling_houses(cls, house_price, market_price, selling_houses, supply, t):

@@ -2,11 +2,10 @@
 """
 Module with all the parameters to define a lightning type appliance and the function to obtain its utility
 """
-from constants import Constants
-from demand_response import Demand
-from appliance_type_4 import ApplianceType4
-
 import numpy as np
+
+from Appliances.appliance_type_4 import ApplianceType4
+from constants import Constants
 
 __author__ = 'jorge'
 
