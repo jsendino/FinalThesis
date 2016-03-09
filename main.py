@@ -23,6 +23,7 @@ def main():
     phev = Phev()
     light = Lightning()
     ent = Entertainment()
+
     appliances = np.array((air, phev, washer, light, ent))
 
     # Compute final price of the energy (will update the demand too)
