@@ -179,11 +179,6 @@ class Demand:
                                                            x,
                                                            dx=0.01,
                                                            args=arg)
-                # If utility is not iterable, IndexError is raised and that means that is an integer.
-                # try:
-                #     utility_derivative = utility_derivative[working_hours]
-                # except IndexError:
-                #     pass
 
             # Compute demand based on new price
             cls.demand[household, i, working_hours] += cls.gamma * (utility_derivative - price[working_hours])
@@ -210,9 +205,9 @@ class Demand:
         # If demand is lower that 0 in some cases, it means that battery must be stopped in those hours
         null_demand_hours = cls.total_house_demand[iteration + 1, household] < 0
         # Correct battery usage
-        Battery.charge_rate[household, null_demand_hours] -= \
-            cls.total_house_demand[iteration + 1, household, null_demand_hours]
-        Battery.check_battery(household, iteration)
+        # Battery.charge_rate[household, null_demand_hours] -= \
+        #     cls.total_house_demand[iteration + 1, household, null_demand_hours]
+        # Battery.check_battery(household, iteration)
         # Set demand to 0
         cls.total_house_demand[iteration + 1, household, null_demand_hours] = 0
 

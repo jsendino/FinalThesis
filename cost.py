@@ -105,8 +105,8 @@ class Cost:
             # Price is set to the marginal cost
             price[i] = cls.compute_price(total_demand) / (cls.magnitude * Constants.num_blocks * Constants.num_households)
             for j in range(0, Constants.num_households):
-                Battery.adapt_charge_rate(j, i, price[i])
                 Demand.adapt_demand(j, i, price[i], appliances)
+                Battery.adapt_charge_rate(j, i, price[i])
                 #Demand.use_battery(j, i)
             house_price[i] = Battery.share_battery(i, price[i])
             # Detect if algorithm has converged. If so, stop iterations

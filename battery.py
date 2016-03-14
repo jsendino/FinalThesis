@@ -122,6 +122,7 @@ class Battery:
         :param household: Household to which check the battery status
         :param iteration: Iteration in which the check is done
         """
+        from demand_response import Demand
         # If any of the new charging rate exceeds maximum, truncate it
         exceeded_hours = np.where(abs(cls.charge_rate[household]) > cls.max_charging_rate)
         cls.charge_rate[household, exceeded_hours] = np.sign(cls.charge_rate[household, exceeded_hours]) * \
@@ -140,11 +141,17 @@ class Battery:
                                                      cls.charge_level[iteration + 1, household,
                                                                       np.subtract(exceeded_hours, 1)]
 
-        # Same for minimum
+        # Same for minimum. There is no need here to re-set the rate cause if the level is under 0,
+        # it means that the energy is taken out of the battery right when it enters
+        # (this fact is taken into account when computing demand)
         insufficient_hours = np.where(cls.charge_level[iteration + 1, household] < cls.min_charge_level)
         cls.charge_level[iteration + 1, household, insufficient_hours] = cls.min_charge_level
-        # There is no need here to re-set the rate cause if the level is under 0, it means that the energy is taken out
-        # of the battery right when it enters (this fact is taken into account when computing demand)
+
+        # Find hours in which battery charge rate makes demand go negative
+        null_demand_hours = np.logical_and(Demand.total_house_demand[iteration + 1, household] < abs(cls.charge_rate[household]),
+                                           cls.charge_rate[household] < 0)
+        cls.charge_rate[household, null_demand_hours] = \
+            - Demand.total_house_demand[iteration + 1, household, null_demand_hours]
 
     @classmethod
     def share_battery(cls, iteration, market_price):
@@ -169,7 +176,7 @@ class Battery:
             house_price = np.zeros(selling_houses.size)
             for i in range(0, selling_houses.size):
                 # This price is the mean cost of consuming its scheduled energy demand
-                house_price[i] = np.mean(Cost.compute_price(Demand.total_house_demand[iteration, i]))
+                house_price[i] = cls.compute_resell_price(market_price, i, iteration, t)
 
             new_house_price, new_selling_houses, supply = cls.filter_selling_houses(house_price, market_price,
                                                                                     selling_houses, supply, t)
@@ -236,6 +243,12 @@ class Battery:
 
         return final_price
 
+    @classmethod
+    def compute_resell_price(cls, market_price, household,  iteration, t):
+        from demand_response import Demand
+        return np.average(market_price[range(0, t + 1)],
+                          weights=Demand.total_house_demand[iteration + 1, household, range(0, t + 1)] +
+                                  Battery.charge_rate[household, range(0, t + 1)])
     @classmethod
     def filter_selling_houses(cls, house_price, market_price, selling_houses, supply, t):
         # Compare the new prices to that of the market and remove from the process those houses whose prices is
