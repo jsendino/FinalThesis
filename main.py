@@ -28,7 +28,6 @@ def main():
 
     # Compute final price of the energy (will update the demand too)
     price, house_price = Cost.energy_price(appliances)
-
     for t in range(0, Constants.day_hours.size):
         Demand.total_demand_per_hour(t)
     #     for i in range(0, Constants.num_households):
@@ -45,6 +44,7 @@ def main():
 
     Demand.plot_demand()
     Cost.plot_price(price)
+    Cost.plot_price(house_price)
     Battery.plot_battery(price)
 
 

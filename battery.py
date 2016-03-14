@@ -168,7 +168,8 @@ class Battery:
             # that is going to be selling at
             house_price = np.zeros(selling_houses.size)
             for i in range(0, selling_houses.size):
-                house_price[i] = np.average(Cost.compute_price(np.sum(Demand.total_house_demand[i], 0)))
+                # This price is the mean cost of consuming its scheduled energy demand
+                house_price[i] = np.mean(Cost.compute_price(Demand.total_house_demand[iteration, i]))
 
             new_house_price, new_selling_houses, supply = cls.filter_selling_houses(house_price, market_price,
                                                                                     selling_houses, supply, t)
@@ -176,7 +177,7 @@ class Battery:
             # If demand overcomes supply, all sellers are going to sell all their charge. As they do not have to compete
             # with their neighbours, price can just be set a differential below the market price
             if required_demand >= np.sum(supply):
-                final_price[t] = market_price - Cost.delta
+                final_price[t] = market_price[t] - Cost.delta
                 cls.charge_rate[new_selling_houses, t] -= supply
                 cls.charge_rate[discharging_houses, t] += np.sum(supply) / discharging_houses.size
             # Else, sellers have to compete. Buyers will start buying from the lowest price house until all demand is
@@ -245,7 +246,7 @@ class Battery:
                                              1))[0]
         # Subset also those houses with battery surplus at the end of the day
         surplus_houses = np.sum(cls.charge_rate[np.ix_(selling_houses,
-                                                       range(t, Constants.day_hours.size))], 1) > 0
+                                                       range(0, Constants.day_hours.size))], 1) > 0
         # Houses that contribute to re-sell will be those that have battery surplus and can recover the battery
         # that are selling that day
         new_selling_houses = np.union1d(selling_houses[lower_price_houses],

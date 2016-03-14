@@ -125,7 +125,7 @@ class Cost:
         Plots the evolution of the average day price along all iterations
         :param price: Bi-dimensional array with same rows as iterations and columns as hours in day
         """
-        average_price = np.average(price[range(0, Constants.final_iteration_number)], 1)
+        average_price = np.nanmean(price[range(0, Constants.final_iteration_number)], 1)
 
         x = np.arange(0, Constants.final_iteration_number)
 
@@ -139,4 +139,3 @@ class Cost:
         plt.xlabel("Iteration number")
         plt.ylabel("Average price")
         plt.show()
-
