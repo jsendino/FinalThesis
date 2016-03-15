@@ -243,10 +243,8 @@ class Demand:
     @staticmethod
     def plot_total_demand():
         initial_total_demand = np.sum(np.sum(Demand.get_initial_demand(), 1), 0)
-        final_flat1 = np.loadtxt("flat1.txt")
-        final_flat2 = np.loadtxt("flat2.txt")
-        final_bat = np.loadtxt("real-time-bat.txt")
-        final_no_bat = np.loadtxt("real-time-nobat.txt")
+        final_flat1 = np.loadtxt("noshare_1.txt")
+        final_flat2 = np.loadtxt("share_1.txt")
 
         # Set x axis values
         ax = plt.gca()
@@ -255,13 +253,11 @@ class Demand:
         # Set x axis labels
         labels = [str(hour) for hour in Constants.day_hours]
         ax.set_xticklabels(labels)
-        plt.step(x, initial_total_demand, color='b', where='post', label="No demand response")
-        plt.step(x, final_flat1, color='m', where='post', label="Flat price scheme I")
-        plt.step(x, final_flat2, color='k', where='post', label="Flat price scheme II")
-        plt.step(x, final_bat, color='r', where='post', label="Real time; no battery")
-        plt.step(x, final_no_bat, color='c', where='post', label="Real time; with battery")
-        plt.title("Electricity demand response under different schemes")
+        #plt.step(x, initial_total_demand, color='b', where='post', label="No demand response")
+        plt.step(x, final_flat1, color='m', where='post', label="No battery sharing")
+        plt.step(x, final_flat2, color='g', where='post', label="Battery is shared")
+        plt.title("Electricity demand response under different battery schemes")
         plt.xlim(min(x), max(x) + 1)
-        plt.legend(loc='upper left')
+        plt.legend(loc='upper right')
         plt.show()
 

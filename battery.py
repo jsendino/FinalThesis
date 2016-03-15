@@ -176,7 +176,7 @@ class Battery:
             house_price = np.zeros(selling_houses.size)
             for i in range(0, selling_houses.size):
                 # This price is the mean cost of consuming its scheduled energy demand
-                house_price[i] = cls.compute_resell_price(market_price, i, iteration, t)
+                house_price[i] = Cost.compute_resell_price(market_price, i, iteration, t)
 
             new_house_price, new_selling_houses, supply = cls.filter_selling_houses(house_price, market_price,
                                                                                     selling_houses, supply, t)
@@ -187,6 +187,7 @@ class Battery:
                 final_price[t] = market_price[t] - Cost.delta
                 cls.charge_rate[new_selling_houses, t] -= supply
                 cls.charge_rate[discharging_houses, t] += np.sum(supply) / discharging_houses.size
+                Demand.total_house_demand[iteration+1, discharging_houses, t] -= np.sum(supply) / discharging_houses.size
             # Else, sellers have to compete. Buyers will start buying from the lowest price house until all demand is
             # fulfilled. The last selling house will be the one to set the price. For all the rest houses, it will be
             # enough to set the price one differential below that last seller's price.
@@ -205,7 +206,9 @@ class Battery:
                 cls.charge_rate[selling_houses[last_seller], t] -= required_demand - np.sum(
                     supply_ordered[range(0, last_seller)])
 
+                Demand.total_house_demand[iteration+1, discharging_houses, t] -= abs(cls.charge_rate[discharging_houses, t])
                 cls.charge_rate[discharging_houses, t] = 0
+
 
             # for seller in selling_houses:
             #     # Add that charge to the buyer house
@@ -223,32 +226,12 @@ class Battery:
             #         if supply[seller] == 0:
             #             break
 
-            # # Take charge from those houses that are charging the batt
-            # cls.charge_rate[charging_houses, t] -= required_demand / np.sum(charging_houses)
-            # # Stop at zero
-            # exceeded = np.where(cls.charge_rate[charging_houses, t] < 0)
-            # if np.any(exceeded):
-            #     # If there are hours in which 0 batt is reached in houses that are sharing charge,
-            #     # redistribute available charge
-            #     given_charge = required_demand + np.sum(cls.charge_rate[exceeded, t])
-            #     cls.charge_rate[charging_houses, t] = 0
-            #     cls.charge_rate[discharging_houses, t] = given_charge / np.sum(discharging_houses)
-            # else:
-            #     # Else, split charge equally
-            #     cls.charge_rate[discharging_houses, t] = required_demand / np.sum(discharging_houses)
-
-        for household in range(0, Constants.num_households):
-            Battery.check_battery(household, iteration)
-            Demand.use_battery(household, iteration)
+        # for household in range(0, Constants.num_households):
+        #     Battery.check_battery(household, iteration)
+        #     Demand.use_battery(household, iteration)
 
         return final_price
 
-    @classmethod
-    def compute_resell_price(cls, market_price, household,  iteration, t):
-        from demand_response import Demand
-        return np.average(market_price[range(0, t + 1)],
-                          weights=Demand.total_house_demand[iteration + 1, household, range(0, t + 1)] +
-                                  Battery.charge_rate[household, range(0, t + 1)])
     @classmethod
     def filter_selling_houses(cls, house_price, market_price, selling_houses, supply, t):
         # Compare the new prices to that of the market and remove from the process those houses whose prices is

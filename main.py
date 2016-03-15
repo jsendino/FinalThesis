@@ -15,6 +15,7 @@ __author__ = 'jorge'
 
 
 def main():
+    #Demand.plot_total_demand()
     Demand.initialize_demand()
     Battery.initialize_battery()
 
@@ -44,8 +45,10 @@ def main():
 
     Demand.plot_demand()
     Cost.plot_price(price)
-    Cost.plot_price(house_price)
+    #Cost.plot_price(house_price)
     Battery.plot_battery(price)
+
+    #np.savetxt("out.txt", Demand.q_per_hour)
 
 
 if __name__ == "__main__":

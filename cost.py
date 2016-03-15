@@ -86,6 +86,12 @@ class Cost:
         return price
 
     @classmethod
+    def compute_resell_price(cls, market_price, household,  iteration, t):
+        return np.average(market_price[range(0, t + 1)],
+                          weights=Demand.total_house_demand[iteration + 1, household, range(0, t + 1)] +
+                                  Battery.charge_rate[household, range(0, t + 1)])
+
+    @classmethod
     def energy_price(cls, appliances):
         """
         Function that computes the price of a kw of energy during all day.
@@ -107,7 +113,7 @@ class Cost:
             for j in range(0, Constants.num_households):
                 Demand.adapt_demand(j, i, price[i], appliances)
                 Battery.adapt_charge_rate(j, i, price[i])
-                #Demand.use_battery(j, i)
+                Demand.use_battery(j, i)
             house_price[i] = Battery.share_battery(i, price[i])
             # Detect if algorithm has converged. If so, stop iterations
             if i > cls.range and \
