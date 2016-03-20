@@ -14,7 +14,7 @@ class Cost:
     """
     # Modifier accounting for the magnitude of a real population to multiply total energy demand
     magnitude = 5 * 10 ** 4
-    #magnitude = 1 * 10 ** 4
+    #magnitude = 1 * 10 ** 6
 
     # Modifier that indicates the units in every step of piecewise function
     M = 1 * 10 ** 6
@@ -109,18 +109,18 @@ class Cost:
             # Compute aggregated demand during all day
             total_demand = np.sum(Demand.total_house_demand[i], 0) * Constants.num_blocks * cls.magnitude
             # Price is set to the marginal cost
-            price[i] = cls.compute_price(total_demand) / (cls.magnitude * Constants.num_blocks * Constants.num_households)
-            for j in range(0, Constants.num_households):
-                Demand.adapt_demand(j, i, price[i], appliances)
-                Battery.adapt_charge_rate(j, i, price[i])
-                Demand.use_battery(j, i)
-            house_price[i] = Battery.share_battery(i, price[i])
+            price[i] = cls.compute_price(total_demand) / \
+                       (cls.magnitude * Constants.num_blocks * Constants.num_households)
             # Detect if algorithm has converged. If so, stop iterations
             if i > cls.range and \
                     np.logical_and(price[i, :] * (1 - Cost.epsilon) <= price[range(i - Cost.range, i+1)],
                                    price[range(i - Cost.range, i+1)] <= price[i, :] * (1 + Cost.epsilon)).all():
-                cls.final_iteration_number = i + 1
                 break
+            for j in range(0, Constants.num_households):
+                Demand.adapt_demand(j, i, price[i], appliances)
+                Battery.adapt_charge_rate(j, i, price[i])
+                Demand.use_battery(j, i)
+            house_price[i] = Battery.start_battery_market(i, price[i])
             i += 1
         Constants.final_iteration_number = i + 1  # i + 1 cause counting iteration 0
         return price, house_price

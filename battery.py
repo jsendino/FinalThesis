@@ -3,9 +3,9 @@
 Module with all necessary parameters to define the battery. It also contains the function to obtain the actual
 level of charge of the battery.
 """
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.misc
-import matplotlib.pyplot as plt
 
 from constants import Constants
 
@@ -18,6 +18,7 @@ class Battery:
     storage_cap = 800
     max_charging_rate = 250  # Maximum charging/discharging rates (in watts)
     charge_rate = np.zeros((Constants.num_households, len(Constants.day_hours)))
+    #battery_deficit = np.zeros(charge_rate.shape)
     # Charge rate with which the battery will be initialized
     # charge_rate[range(0, Constants.num_households)] = np.array((1900, 1600, 800, 0, -200, -900, 25, 750,
     #                                                             800, 750, -2500, -2500, -1800, -1500, -1000, -500,
@@ -30,7 +31,7 @@ class Battery:
     # Max charge level
     min_charge_level = 0
     charge_level = np.zeros((Constants.max_num_iterations, Constants.num_households, len(Constants.day_hours)))
-    initial_charge_level = 0
+    initial_charge_level = 100
     total_charge_level = np.zeros((Constants.max_num_iterations, Constants.num_households))
 
     # Battery constants
@@ -110,55 +111,129 @@ class Battery:
                                                                 cls.charge_level[iteration, household],))
 
         # Compute new adapted charging schedule
-        cls.charge_rate[household] -= cls.gamma * (operating_cost_derivative + price)
-        # Check if the status of the battery is consistent
-        cls.check_battery(household, iteration)
+        cls.change_battery_level(iteration,
+                                 household,
+                                 range(0, Constants.day_hours.size),
+                                 -cls.gamma * (operating_cost_derivative + price))
 
     @classmethod
-    def check_battery(cls, household, iteration):
+    def change_battery_level(cls, iteration, household, t, charge):
         """
-        Check both the charge schedule and the charge level of the battery to see if they are consistent. If not,
-        adjust them.
-        :param household: Household to which check the battery status
-        :param iteration: Iteration in which the check is done
+        Modifies the charge level of the battery, performing the necessary checks
+        :rtype: integer
+        :param iteration: number of iteration
+        :param household: index of current household in household matrix
+        :param t: hour of day
+        :param charge: amount of charge to increment
+        :return: actual incremented charge according to working requirements
+        """
+        initial_battery_rate = cls.charge_rate[household, t]
+        # Increment charge
+        cls.charge_rate[household, t] += charge
+        # Modify increment so that it meets requirements
+        cls.check_bat_requirements(iteration, household)
+        cls.check_demand_requirements(iteration, household)
+        # Return actual increment
+        return cls.charge_rate[household, t] - initial_battery_rate
+
+    @classmethod
+    def sell_battery(cls, iteration, household, t, charge):
+        """
+        Sell amount of charge from battery. This method is called when re-selling available charge, so some checks
+        that are performed when using the battery are not needed.
+        :rtype: integer
+        :param iteration: number of iteration
+        :param household: index of current household in household matrix
+        :param t: hour of day
+        :param charge: amount of charge to increment
+        :return: actual incremented charge according to working requirements
+        """
+        initial_battery_rate = cls.charge_rate[household, t]
+        # Increment charge
+        cls.charge_rate[household, t] += charge
+        # Modify increment so that it meets requirements. As the charge does not go to same house (charge is not
+        # use to fulfill owner's demand) demand requirements are not needed to check.
+        cls.check_bat_requirements(iteration, household)
+        # Return actual increment
+        return cls.charge_rate[household, t] - initial_battery_rate
+
+    @classmethod
+    def check_bat_requirements(cls, iteration, household):
+        """
+        Check whether the state of the battery meets requirements. If not, modify charge so it does.
+        :param iteration: number of iteration
+        :param household: index of current household in household matrix
+        """
+        try:
+            # If any of the new charging rate exceeds maximum, truncate it
+            exceeded_hours = np.where(abs(cls.charge_rate[household]) > cls.max_charging_rate)
+            cls.charge_rate[household, exceeded_hours] = np.sign(cls.charge_rate[household, exceeded_hours]) * \
+                                                         cls.max_charging_rate
+
+            # Now that charging rates have been computed, calculate charging level from it
+            cls.charge_level[iteration + 1, household] = cls.initial_charge_level + \
+                                                         np.cumsum(cls.charge_rate[household])
+
+            # Find hours in which the level has exceed the maximum
+            exceeded_hours = np.where(cls.charge_level[iteration + 1, household] > cls.storage_cap)[0]
+            # In those hours, reduce level to maximum
+            cls.charge_level[iteration + 1, household, exceeded_hours] = cls.storage_cap
+            # Set rate in those hours to the value needed to reach the max charge
+            cls.charge_rate[household, exceeded_hours] = cls.charge_level[iteration + 1, household, exceeded_hours] - \
+                                                         cls.charge_level[iteration + 1, household,
+                                                                          exceeded_hours - 1]
+            # Same for minimum. There is no need here to re-set the rate cause if the level is under 0,
+            # it means that the energy is taken out of the battery right when it enters
+            # (this fact is taken into account when computing demand)
+            insufficient_hours = np.where(cls.charge_level[iteration + 1, household] < cls.min_charge_level)[0]
+            # cls.battery_deficit[household, insufficient_hours] = abs(cls.charge_rate[household, insufficient_hours] + \
+            #                                                          cls.charge_level[iteration + 1, household, insufficient_hours-1])
+            cls.charge_level[iteration + 1, household, insufficient_hours] = cls.min_charge_level
+        except:
+            exceeded = np.where(abs(cls.charge_rate[household]) > cls.max_charging_rate)
+            cls.charge_rate[household[exceeded[0]], exceeded[1]] = np.sign(cls.charge_rate[household[exceeded[0]],
+                                                                                           exceeded[1]]) * \
+                                                        cls.max_charging_rate
+            # Find hours in which the level has exceed the maximum
+            exceeded = np.where(cls.charge_level[iteration + 1, household] > cls.storage_cap)
+            # In those hours, reduce level to maximum
+            cls.charge_level[iteration + 1, exceeded[0], exceeded[1]] = cls.storage_cap
+            # Set rate in those hours to the value needed to reach the max charge
+            cls.charge_rate[household[exceeded[0]], exceeded[1]] = cls.charge_level[iteration + 1,
+                                                                                    household[exceeded[0]],
+                                                                                    exceeded[1]] - \
+                                                         cls.charge_level[iteration + 1, household[exceeded[0]],
+                                                                          exceeded[1] - 1]
+            # Same for minimum. There is no need here to re-set the rate cause if the level is under 0,
+            # it means that the energy is taken out of the battery right when it enters
+            # (this fact is taken into account when computing demand)
+            insufficient = np.where(cls.charge_level[iteration + 1, household] < cls.min_charge_level)
+            # cls.battery_deficit[household, insufficient_hours] = abs(cls.charge_rate[household, insufficient_hours] + \
+            #                                                          cls.charge_level[iteration + 1, household, insufficient_hours-1])
+            cls.charge_level[iteration + 1, household[insufficient[0]], insufficient[1]] = cls.min_charge_level
+
+    @classmethod
+    def check_demand_requirements(cls, iteration, household):
+        """
+        Check whether the state of the battery meets requirements regarding total demand.
+        If not, modify charge so it does.
+        :param iteration: number of iteration
+        :param household: index of current household in household matrix
         """
         from demand_response import Demand
-        # If any of the new charging rate exceeds maximum, truncate it
-        exceeded_hours = np.where(abs(cls.charge_rate[household]) > cls.max_charging_rate)
-        cls.charge_rate[household, exceeded_hours] = np.sign(cls.charge_rate[household, exceeded_hours]) * \
-                                                     cls.max_charging_rate
-
-        # Now that charging rates have been computed, calculate charging level from it
-        cls.charge_level[iteration + 1, household] = cls.initial_charge_level + \
-                                                     np.cumsum(cls.charge_rate[household])
-
-        # Find hours in which the level has exceed the maximum
-        exceeded_hours = np.where(cls.charge_level[iteration + 1, household] > cls.storage_cap)
-        # In those hours, reduce level to maximum
-        cls.charge_level[iteration + 1, household, exceeded_hours] = cls.storage_cap
-        # Set rate in those hours to the value needed to reach the max charge
-        cls.charge_rate[household, exceeded_hours] = cls.charge_level[iteration + 1, household, exceeded_hours] - \
-                                                     cls.charge_level[iteration + 1, household,
-                                                                      np.subtract(exceeded_hours, 1)]
-
-        # Same for minimum. There is no need here to re-set the rate cause if the level is under 0,
-        # it means that the energy is taken out of the battery right when it enters
-        # (this fact is taken into account when computing demand)
-        insufficient_hours = np.where(cls.charge_level[iteration + 1, household] < cls.min_charge_level)
-        cls.charge_level[iteration + 1, household, insufficient_hours] = cls.min_charge_level
-
         # Find hours in which battery charge rate makes demand go negative
-        null_demand_hours = np.logical_and(Demand.total_house_demand[iteration + 1, household] < abs(cls.charge_rate[household]),
+        null_demand_hours = np.logical_and(Demand.total_house_demand[iteration + 1, household] <
+                                           abs(cls.charge_rate[household]),
                                            cls.charge_rate[household] < 0)
         cls.charge_rate[household, null_demand_hours] = \
             - Demand.total_house_demand[iteration + 1, household, null_demand_hours]
 
     @classmethod
-    def share_battery(cls, iteration, market_price):
+    def start_battery_market(cls, iteration, market_price):
         """
-
-        :param iteration:
-        :param market_price:
+        Start the process of re-selling charge from battery.
+        :param iteration: number of iteration
+        :param market_price: price the market has set for current iteration
         """
         from demand_response import Demand
         from cost import Cost
@@ -166,11 +241,9 @@ class Battery:
         for t in range(0, Constants.day_hours.size):
             # Boolean array indicating which houses have consumed above its battery's capacity
             discharging_houses, required_demand, selling_houses, supply = cls.get_market_participants(iteration, t)
-
             if all(supply) == 0:
                 final_price[t] = float('nan')
                 continue
-
             # Given the houses that are going to sell energy, compute for each one the new market_price
             # that is going to be selling at
             house_price = np.zeros(selling_houses.size)
@@ -180,14 +253,12 @@ class Battery:
 
             new_house_price, new_selling_houses, supply = cls.filter_selling_houses(house_price, market_price,
                                                                                     selling_houses, supply, t)
-
             # If demand overcomes supply, all sellers are going to sell all their charge. As they do not have to compete
             # with their neighbours, price can just be set a differential below the market price
             if required_demand >= np.sum(supply):
                 final_price[t] = market_price[t] - Cost.delta
-                cls.charge_rate[new_selling_houses, t] -= supply
-                cls.charge_rate[discharging_houses, t] += np.sum(supply) / discharging_houses.size
-                Demand.total_house_demand[iteration+1, discharging_houses, t] -= np.sum(supply) / discharging_houses.size
+                actual_supply = cls.sell_battery(iteration, new_selling_houses, t, -supply)
+                Demand.total_house_demand[iteration+1, discharging_houses, t] -= abs(np.sum(actual_supply)) / discharging_houses.size
             # Else, sellers have to compete. Buyers will start buying from the lowest price house until all demand is
             # fulfilled. The last selling house will be the one to set the price. For all the rest houses, it will be
             # enough to set the price one differential below that last seller's price.
@@ -202,38 +273,31 @@ class Battery:
                 final_price[t] = new_house_price[last_seller] - Cost.delta
 
                 # Perform charge exchange
-                cls.charge_rate[selling_houses[range(0, last_seller)], t] -= supply_ordered[range(0, last_seller)]
-                cls.charge_rate[selling_houses[last_seller], t] -= required_demand - np.sum(
-                    supply_ordered[range(0, last_seller)])
+                most_sellers_supply = cls.sell_battery(iteration,
+                                                       selling_houses[range(0, last_seller)],
+                                                       t,
+                                                       - supply_ordered[range(0, last_seller)])
+                last_seller_supply = cls.sell_battery(iteration,
+                                                      selling_houses[last_seller],
+                                                      t,
+                                                      - required_demand - np.sum(supply_ordered[range(0, last_seller)]))
 
-                Demand.total_house_demand[iteration+1, discharging_houses, t] -= abs(cls.charge_rate[discharging_houses, t])
-                cls.charge_rate[discharging_houses, t] = 0
-
-
-            # for seller in selling_houses:
-            #     # Add that charge to the buyer house
-            #     for buyer in discharging_houses:
-            #         if cls.charge_rate[seller, t] > abs(cls.charge_rate[buyer, t]):
-            #             sold_charge = cls.charge_rate[buyer, t]
-            #         else:
-            #             sold_charge = Battery.charge_rate[seller, t]
-            #
-            #         cls.charge_rate[buyer, t] += sold_charge
-            #         # If current buyer has enough charge, remove it from vector of buyers
-            #         if cls.charge_rate[buyer, t] >= 0:
-            #             np.delete(discharging_houses, buyer)
-            #         supply[seller == selling_houses] -= sold_charge
-            #         if supply[seller] == 0:
-            #             break
-
-        # for household in range(0, Constants.num_households):
-        #     Battery.check_battery(household, iteration)
-        #     Demand.use_battery(household, iteration)
+                # As demand is lower than supply, all demand is fulfilled
+                Demand.total_house_demand[iteration+1, discharging_houses, t] = 0
 
         return final_price
 
     @classmethod
     def filter_selling_houses(cls, house_price, market_price, selling_houses, supply, t):
+        """
+        Regarding the re-selling market, eliminates from selling houses those which may not benefit from selling
+        :param house_price: sell price each house has calculated
+        :param market_price: price the market has set for current iteration
+        :param selling_houses: array with houses that may sell charge
+        :param supply: charge supply from those selling houses
+        :param t: hour of the day in which market is to take place
+        :return: tuple with the new selling houses, their supply and selling price
+        """
         # Compare the new prices to that of the market and remove from the process those houses whose prices is
         # always lower than that of the market (will not recover from sell)
         lower_price_houses = np.where(np.any(house_price.reshape((house_price.size, 1)) >
@@ -255,12 +319,19 @@ class Battery:
 
     @classmethod
     def get_market_participants(cls, iteration, t):
+        """
+        In a given iteration and hours, gets all households that are eligible to participate in a charge re-selling
+        market either as seller or as buyers.
+        :param iteration: number of iteration
+        :param t: hour of the day in which market is to take place
+        :return: tuple with buying houses, required demand from those houses, selling houses and supply
+        """
+        from demand_response import Demand
         discharging_houses = np.where(np.logical_and(cls.charge_rate[:, t] < 0,
                                                      cls.charge_level[iteration + 1, :, t] <
                                                      abs(cls.charge_rate[:, t])))[0]
         # Find demand thar is needed in those houses
-        required_demand = abs(np.sum(cls.charge_rate[discharging_houses, t] -
-                                     cls.charge_level[iteration + 1, discharging_houses, t]))
+        required_demand = np.sum(Demand.total_house_demand[iteration+1, discharging_houses, t])
         # Get houses with available charge in their battery
         charging_houses = np.where(cls.charge_rate[:, t] > 0)[0]
         charged_houses = np.where(cls.charge_level[iteration + 1, :, t] > abs(cls.charge_rate[:, t]))[0]
