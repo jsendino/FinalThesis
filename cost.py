@@ -10,8 +10,13 @@ __author__ = 'jorge'
 
 class Cost:
     """
-    Class with functions to compute total cost of the system
+    Class with functions to compute the cost of the system
     """
+    # Arrays with energy prices
+    price = np.zeros((Constants.max_num_iterations, Constants.day_hours.size))
+    # Array with price at which the energy is re-selled
+    house_price = np.zeros((Constants.max_num_iterations, Constants.day_hours.size))
+
     # Modifier accounting for the magnitude of a real population to multiply total energy demand
     magnitude = 5 * 10 ** 4
     #magnitude = 1 * 10 ** 6
@@ -19,10 +24,13 @@ class Cost:
     # Modifier that indicates the units in every step of piecewise function
     M = 1 * 10 ** 6
 
+    # Money each house spends in energy by hour
+    expenditures = np.zeros((Constants.num_households, Constants.day_hours.size))
+
     # Precision when checking whether the algorithm has converged
     epsilon = 10 ** -3
 
-    # Price increment when re-selling battery
+    # Price increment when resaling battery
     delta = 0.1
 
     # Number of samples to compare when checking if price has converged
@@ -102,28 +110,31 @@ class Cost:
         :rtype : Bi-dimensional array with same rows as iterations ran and same columns as hours in day.
         :return : Each cell of the returned array is the price in that combination of iteration and hour
         """
-        price = np.zeros((Constants.max_num_iterations, Constants.day_hours.size))
-        house_price = np.zeros(price.shape)
         i = 0
         while i < Constants.max_num_iterations - 1:
-            # Compute aggregated demand during all day
             total_demand = np.sum(Demand.total_house_demand[i], 0) * Constants.num_blocks * cls.magnitude
             # Price is set to the marginal cost
-            price[i] = cls.compute_price(total_demand) / \
-                       (cls.magnitude * Constants.num_blocks * Constants.num_households)
+            cls.price[i] = cls.compute_price(total_demand) / \
+                          (cls.magnitude * Constants.num_blocks * Constants.num_households)
             # Detect if algorithm has converged. If so, stop iterations
             if i > cls.range and \
-                    np.logical_and(price[i, :] * (1 - Cost.epsilon) <= price[range(i - Cost.range, i+1)],
-                                   price[range(i - Cost.range, i+1)] <= price[i, :] * (1 + Cost.epsilon)).all():
+                    np.logical_and(cls.price[i, :] * (1 - Cost.epsilon) <= cls.price[range(i - Cost.range, i+1)],
+                                   cls.price[range(i - Cost.range, i+1)] <= cls.price[i, :] * (1 + Cost.epsilon)).all():
                 break
             for j in range(0, Constants.num_households):
-                Demand.adapt_demand(j, i, price[i], appliances)
-                Battery.adapt_charge_rate(j, i, price[i])
+                Demand.adapt_demand(j, i, cls.price[i], appliances)
+                Battery.adapt_charge_rate(j, i, cls.price[i])
                 Demand.use_battery(j, i)
-            house_price[i] = Battery.start_battery_market(i, price[i])
+            cls.expenditures = Demand.total_house_demand[i+1] * cls.price[i]
+            cls.house_price[i] = Battery.start_battery_market(i, cls.price[i])
             i += 1
         Constants.final_iteration_number = i + 1  # i + 1 cause counting iteration 0
-        return price, house_price
+
+    @classmethod
+    def increment_expenditures(cls, buying_houses, selling_houses, amount, market_price, final_price, t):
+        cls.expenditures[selling_houses, t] -= abs(amount) * final_price
+        cls.expenditures[buying_houses, t] -= (np.sum(abs(amount)) / buying_houses.size) * \
+                                              (market_price - final_price)
 
     @classmethod
     def plot_price(cls, price):

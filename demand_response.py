@@ -117,24 +117,16 @@ class Demand:
 
     @classmethod
     def initialize_demand(cls):
-        cls.demand = Demand.get_initial_demand() * (1 + abs(np.random.normal(scale=0.5, size=cls.demand.shape)))
+        cls.demand = Demand.get_initial_demand() #* (1 + abs(np.random.normal(scale=0.5, size=cls.demand.shape)))
 
         cls.total_house_demand[0] = np.sum(cls.demand, axis=1)
 
     @classmethod
-    def compute_demand_response(cls, household, appliance_type, hour, is_with_battery):
-        """
-        Computes the initial energy demand response of each household. This is the demand
-        that each household makes without adjusting it to current price
-
-        :param household: integer that indicates the household index
-        :param appliance_type:  integer that indicates the appliance type (1-5)
-        :param hour: hour of the day in which the demand has to be computed
-        :param is_with_battery:  boolean to indicate whether a battery is being used or not
-        :return:
-        :rtype : integer representing the demand in watts
-        """
-        return cls.demand[household, appliance_type, hour]
+    def increment_total_demand(cls, iteration, household, hour, charge):
+        if charge == 0:
+            cls.total_house_demand[iteration, household, hour] = 0
+        else:
+            cls.total_house_demand[iteration, household, hour] += charge
 
     @classmethod
     def total_demand_per_hour(cls):
