@@ -302,7 +302,7 @@ class Battery:
                                                            new_selling_houses[range(0, last_seller)],
                                                            t,
                                                            - supply_ordered[range(0, last_seller)])
-                     # Update expenditures for energy bought to sellers with lower price
+                    # Update expenditures for energy bought to sellers with lower price
                     Cost.increment_expenditures(buying_houses,
                                                 new_selling_houses[range(0, last_seller)],
                                                 most_sellers_supply,
@@ -322,40 +322,7 @@ class Battery:
                                             last_seller_supply,
                                             market_price[t], last_seller_price, t)
 
-                # if len(most_sellers_supply) == 0 and last_seller_supply == 0:
-                #     continue
-                # elif len(most_sellers_supply) == 0:
-                #     Demand.increment_total_demand(iteration + 1,
-                #                                   buying_houses,
-                #                                   t,
-                #                                   -abs(last_seller_supply) / buying_houses.size)
-                #     Cost.increment_expenditures(buying_houses,
-                #                                 new_selling_houses[last_seller],
-                #                                 last_seller_supply,
-                #                                 market_price[t], final_price[t], t)
-                # elif last_seller_supply == 0:
-                #     Demand.increment_total_demand(iteration + 1,
-                #                                   buying_houses,
-                #                                   t,
-                #                                   -abs(np.sum(most_sellers_supply)) / buying_houses.size)
-                #     Cost.increment_expenditures(buying_houses,
-                #                                 new_selling_houses[range(0, last_seller)],
-                #                                 most_sellers_supply,
-                #                                 market_price[t], final_price[t], t)
-                # else:
-                #     # As demand is lower than supply, all demand is fulfilled
-                #     Demand.increment_total_demand(iteration + 1, buying_houses, t, 0)
-                #
-                #     last_seller_price = Cost.delta + new_house_price[last_seller]
-                #     # Update expenditures for energy bought to sellers with lower price
-                #     Cost.increment_expenditures(buying_houses,
-                #                                 new_selling_houses[range(0, last_seller)],
-                #                                 most_sellers_supply,
-                #                                 market_price[t], final_price[t], t)
-                #     Cost.increment_expenditures(buying_houses,
-                #                                 new_selling_houses[last_seller],
-                #                                 last_seller_supply,
-                #                                 market_price[t], last_seller_price, t)
+
         return final_price
 
     @classmethod
