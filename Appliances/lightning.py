@@ -20,6 +20,7 @@ class Lightning(ApplianceType4):
         Initialize object with common values (same for all houses)
         """
         self.demand_range = (200, 800)
+        self.demand_requirement_range = np.tile((0, float('inf')), [2, 1])
 
         self.working_hours = np.array((np.arange(18, 24),
                                        np.arange(18, 24)))

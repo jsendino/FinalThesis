@@ -20,7 +20,8 @@ class Entertainment(ApplianceType3):
         Initialize object with common values (same for all houses)
         """
         # Both expressed in watt/hour
-        self.power_demand_change = (1200, 3500)
+        self.demand_requirement_range = np.array(((1200, 3500),
+                                                 (500, 2000)))
         self.demand_range = (0, 400)
 
         self.working_hours = np.array((np.arange(12, 24),

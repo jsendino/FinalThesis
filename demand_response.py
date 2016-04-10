@@ -112,12 +112,11 @@ class Demand:
                                                                                                                225,
                                                                                                                300)),
                                                                                                            np.zeros(8)])
-
-        return demand
+        return demand*2
 
     @classmethod
     def initialize_demand(cls):
-        cls.demand = Demand.get_initial_demand() #* (1 + abs(np.random.normal(scale=0.5, size=cls.demand.shape)))
+        cls.demand = Demand.get_initial_demand() #* (1 + abs(np.random.normal(scale=1, size=cls.demand.shape)))
 
         cls.total_house_demand[0] = np.sum(cls.demand, axis=1)
 
@@ -152,28 +151,30 @@ class Demand:
         for i in range(0, appliances.size):
             working_hours = np.in1d(Constants.day_hours,
                                     appliances[i].working_hours[int(Constants.household_type[household])])
+            demand_requirement_range = appliances[i].demand_requirement_range[
+                int(Constants.household_type[household])]
             demand_range = appliances[i].demand_range
             x = arg = 0
 
             base_class = appliances[i]._base_class
             if base_class == "ApplianceType1":
-                utility_derivative = 0
+                x = cls.demand[household, i]
+                arg = (household, working_hours, )
+            elif base_class == "ApplianceType2":
+                x = np.sum(cls.demand[household, i, working_hours])
+                arg = (household,)
             else:
-                if base_class == "ApplianceType2":
-                    x = np.sum(cls.demand[household, i, working_hours])
-                    arg = (household,)
-                elif base_class == "ApplianceType3" or base_class == "ApplianceType4":
-                    average = cls.average_demand(household, i, working_hours)
-                    x = cls.demand[household, i, working_hours]
-                    arg = (average, household,)
+                average = cls.average_demand(household, i, working_hours)
+                x = cls.demand[household, i, working_hours]
+                arg = (average, household,)
 
-                utility_derivative = scipy.misc.derivative(appliances[i].utility,
-                                                           x,
-                                                           dx=0.01,
-                                                           args=arg)
+            utility_derivative = scipy.misc.derivative(appliances[i].utility,
+                                                       x,
+                                                       dx=0.01,
+                                                       args=arg)
 
-                if np.any(np.isnan(utility_derivative)):
-                    utility_derivative[np.isnan(utility_derivative)] = np.nanmean(utility_derivative)
+            if np.any(np.isnan(utility_derivative)):
+                utility_derivative[np.isnan(utility_derivative)] = np.nanmean(utility_derivative)
 
             # Compute demand based on new price
             cls.demand[household, i, working_hours] += cls.gamma * (utility_derivative - price[working_hours])
@@ -184,6 +185,14 @@ class Demand:
             insufficient_demand = cls.demand[household, i] < min(demand_range)
             cls.demand[household, i, np.logical_and(insufficient_demand,
                                                     working_hours)] = min(demand_range)
+            # If demand within all day is not in demand requirement range, adapt it
+            sum_demand = np.sum(cls.demand[household, i, working_hours])
+            if sum_demand > max(demand_requirement_range):
+                cls.demand[household, i, working_hours] -= \
+                    (sum_demand - max(demand_requirement_range)) / sum(working_hours)
+            elif sum_demand < min(demand_requirement_range):
+                cls.demand[household, i, working_hours] += \
+                    (min(demand_requirement_range) - sum_demand) / sum(working_hours)
 
         # Compute total demand of current house
         cls.total_house_demand[iteration + 1, household] = np.sum(cls.demand[household], axis=0)

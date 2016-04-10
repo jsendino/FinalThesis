@@ -19,7 +19,7 @@ class Washer(ApplianceType2):
         """
         Initialize object with common values (same for all houses)
         """
-        self.power_demand_range = (np.random.uniform(1400, 1600), np.random.uniform(2000, 2500))
+        self.demand_requirement_range = np.tile((np.random.uniform(1400, 1600), np.random.uniform(2000, 2500)), [2, 1])
         self.demand_range = (0, 1500)
 
         self.working_hours = np.array((Constants.day_hours,

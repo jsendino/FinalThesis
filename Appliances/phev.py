@@ -16,9 +16,8 @@ class Phev(ApplianceType2):
         """
         Initialize object with common values (same for all houses)
         """
-        self.demand_range = (0, 2000)
-        self.min_charge_level = (np.random.uniform(4800, 5100), np.random.uniform(5500, 6000))
-        self.charging_rate_range = (0, 2000)  # Minimum and maximum charging rates (in watts)
+        self.demand_range = (0, 2000)  # Minimum and maximum charging rates (in watts)
+        self.demand_requirement_range = np.tile((np.random.uniform(4800, 5100), np.random.uniform(5500, 6000)), [2, 1])
 
         self.working_hours = np.array((np.concatenate((np.arange(18, 24), np.arange(0, 8))),
                                        np.concatenate((np.arange(18, 24), np.arange(0, 8)))))  # Same for all households
