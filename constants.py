@@ -8,6 +8,7 @@ class Constants:
     """
     Class with general constants and variables used along the project.
     """
+    num_producers = 2
     num_households = 25
     num_blocks = 4
     num_appliances = 5
@@ -27,7 +28,7 @@ class Constants:
     c = np.ones((num_households, num_appliances))
 
     # Max number of iterations to compute cost
-    max_num_iterations = 10000
+    max_num_iterations = 1231
 
     # Final number of iterations performed when algorithm converged
     final_iteration_number = 0

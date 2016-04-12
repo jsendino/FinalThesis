@@ -27,7 +27,7 @@ def main():
     appliances = np.array((air, phev, washer, light, ent))
 
     # Compute final price of the energy (will update the demand too)
-    Cost.energy_price(appliances)
+    Cost.optimal_demand_response(appliances)
     Demand.total_demand_per_hour()
 
     Demand.plot_demand()
@@ -37,8 +37,7 @@ def main():
 
     np.savetxt("expenditures.txt", np.sum(Cost.expenditures, 0))
     np.savetxt("demand.txt", Demand.q_per_hour)
-    np.savetxt("cost.txt", Cost.price[Constants.final_iteration_number - 1])
-
+    np.savetxt("cost.txt", Cost.price[Constants.final_iteration_number - 2])
 
 if __name__ == "__main__":
     main()

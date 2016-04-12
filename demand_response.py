@@ -154,7 +154,6 @@ class Demand:
             demand_requirement_range = appliances[i].demand_requirement_range[
                 int(Constants.household_type[household])]
             demand_range = appliances[i].demand_range
-            x = arg = 0
 
             base_class = appliances[i]._base_class
             if base_class == "ApplianceType1":

@@ -228,10 +228,6 @@ class Battery:
     @classmethod
     def available_selling_charge(cls, iteration, household, t):
         charge = 0
-        #charge = cls.max_charging_rate + cls.charge_rate[household, t]
-        # if cls.charge_level[iteration + 1, household, t] > abs(cls.charge_rate[household, t]) and \
-        #                         charge + cls.charge_level[iteration + 1, household, t] <= cls.max_charging_rate:
-        #     charge += cls.charge_level[iteration + 1, household, t]
 
         if cls.charge_rate[household, t] > 0:
             charge += cls.charge_rate[household, t]
@@ -321,7 +317,6 @@ class Battery:
                                             new_selling_houses[last_seller],
                                             last_seller_supply,
                                             market_price[t], last_seller_price, t)
-
 
         return final_price
 
@@ -415,7 +410,7 @@ class Battery:
         plt.step(x, Battery.charge_rate[0], color='b', where='post')
         plt.subplot(313, sharex=ax)
         plt.title("Final price")
-        plt.step(x, price[Constants.final_iteration_number - 1], color='g', where='post')
+        plt.step(x, np.mean(price[Constants.final_iteration_number - 1], 0), color='g', where='post')
         plt.xlim(min(x), max(x) + 1)
 
         fig.subplots_adjust(hspace=.5)
