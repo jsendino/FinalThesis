@@ -13,25 +13,15 @@ class Cost:
     """
     Class with functions to compute the cost of the system
     """
-    # Arrays with energy prices
-    price = np.zeros((Constants.max_num_iterations, Constants.num_producers, Constants.day_hours.size))
     # Array with price at which the energy is re-selled
     house_price = np.zeros((Constants.max_num_iterations, Constants.day_hours.size))
 
-    # Logical array with houses consuming of each producer
-    customers = np.zeros((Constants.num_producers, Constants.num_households, Constants.day_hours.size), 'int')
-    adjacency_matrix = np.zeros((Constants.num_producers + Constants.num_households,
-                                 Constants.num_producers + Constants.num_households), 'int')
-
     # Modifier accounting for the magnitude of a real population to multiply total energy demand
-    magnitude = 5 * 10 ** 4
-    #magnitude = 1 * 10 ** 6
+    magnitude = 5 * 10 ** 5
+    # magnitude = 1 * 10 ** 6
 
     # Modifier that indicates the units in every step of piecewise function
     M = 1 * 10 ** 6
-
-    # Money each house spends in energy by hour
-    expenditures = np.zeros((Constants.num_households, Constants.day_hours.size))
 
     # Precision when checking whether the algorithm has converged
     epsilon = 10 ** -3
@@ -73,135 +63,66 @@ class Cost:
         return function_values[conditions_values]
 
     @classmethod
-    def energy_price(cls, total_demand):
+    def energy_price(cls, total_demand, num_households):
 
         """
         Function that computes the energy price as the marginal cost of energy (the derivative of the
         cost function calculated over the aggregated demand)
 
-        :param total_demand: integer with the aggregated demand of all houses in one hour
-        :return: integer with the energy price corresponding to total_demand
+        :param total_demand: integer with the aggregated demand of all houses in one hour or array with aggregated demands
+        :return: integer/array with the energy price corresponding to total_demand
         """
-        return scipy.misc.derivative(cls.total_cost, total_demand, dx=0.1)
-
-    @classmethod
-    def compute_price(cls, iteration, prod):
-        price = np.zeros(Constants.day_hours.size)
-        for t in range(0, Constants.day_hours.size):
-            # Compute aggregated demand for each provider at hour t
-            total_demand = np.sum(Demand.total_house_demand[iteration,
-                                                            np.nonzero(cls.customers[prod, :, t])[0],
-                                                            t]) * Constants.num_blocks * cls.magnitude
-            # Price is set to the marginal cost
-            price[t] = cls.energy_price(total_demand) / (cls.magnitude * Constants.num_blocks * Constants.num_households)
-
+        price = np.zeros(len(total_demand))
+        for i in range(len(total_demand)):
+            p = scipy.misc.derivative(cls.total_cost, total_demand[i] * cls.magnitude, dx=0.1) / \
+               (cls.magnitude * num_households)
+            if np.sum(p) == 0:
+                p = 0
+            price[i] = p
         return price
 
     @classmethod
-    def compute_resell_price(cls, market_price, household,  iteration, t):
-        return np.average(market_price[range(0, t + 1)],
-                          weights=Demand.total_house_demand[iteration + 1, household, range(0, t + 1)] +
-                                  Battery.charge_rate[household, range(0, t + 1)])
-
-    @classmethod
-    def optimal_demand_response(cls, appliances):
+    def optimal_demand_response(cls, consumers):
         """
         Function that computes the price of a kw of energy during all day.
 
         It runs an iterative algorithm in which every house adapt its initial demand
         to the cost until equilibrium is reached.
 
-        :param appliances: vector with appliance used in each house
+        :param consumers: Consumer object
         :rtype : Bi-dimensional array with same rows as iterations ran and same columns as hours in day.
         :return : Each cell of the returned array is the price in that combination of iteration and hour
         """
         i = 0
+        global_price = np.zeros((Constants.max_num_iterations, Constants.num_producers, Constants.day_hours.size))
         while i < Constants.max_num_iterations - 1:
-            if i == 0:
-                # If initial iteration, assign provider randomly
-                cls.assign_initial_customers()
-            else:
-                # Else, decide provider for every house and hour
-                cls.decide_provider(i)
-
+            # For every producer, get its price based on the demand each one has to serve in the previous iteration
             for prod in range(Constants.num_producers):
-                cls.price[i, prod] = cls.compute_price(i, prod)
-
+                total_demand = consumers.get_demand_by_prod(i, prod, range(Constants.day_hours.size))
+                global_price[i, prod] = cls.energy_price(total_demand, consumers.num_total_households)
+            # Now prices has been established, each house can decide from which provider be served in next iteration
+            consumers.decide_provider(i, global_price[i])
             # Detect if algorithm has converged. If so, stop iterations
-            n_samples_mean = cls.price[range(i - Cost.range, i+1), :]
+            n_samples_mean = global_price[range(i - Cost.range, i+1), :]
             if i > cls.range and \
-                    np.logical_and(cls.price[i] * (1 - Cost.epsilon) <= n_samples_mean,
-                                   n_samples_mean <= cls.price[i] * (1 + Cost.epsilon)).all():
+                    np.logical_and(global_price[i] * (1 - Cost.epsilon) <= n_samples_mean,
+                                   n_samples_mean <= global_price[i] * (1 + Cost.epsilon)).all():
                 break
             # For every house, take price for all the day based on the provider decision every house has made
             # and adapt demand
-            for j in range(0, Constants.num_households):
-                prod = np.nonzero(cls.customers[:, j])[0]
-                price = np.zeros(Constants.day_hours.size)
-                for t in range(Constants.day_hours.size):
-                    price[t] = cls.price[i, prod[t], t]
-                Demand.adapt_demand(j, i, price, appliances)
-                Battery.adapt_charge_rate(j, i, price)
-                Demand.use_battery(j, i)
+            for j in range(consumers.blocks.size):
+                consumers.blocks[j].update_parameters(i, global_price[i], consumers.blocks[j].appliances)
 
-                cls.expenditures[j] = Demand.total_house_demand[i+1, j] * price
-            cls.house_price[i] = Battery.start_battery_market(i, cls.price[i, 0])
+                cls.house_price[i] = consumers.blocks[j].start_battery_market(i, np.mean(global_price[i], 0))
             i += 1
-
         Constants.final_iteration_number = i + 1  # i + 1 cause counting iteration 0
 
-    @classmethod
-    def increment_expenditures(cls, buying_houses, selling_houses, amount, market_price, final_price, t):
-        cls.expenditures[selling_houses, t] -= abs(amount) * final_price
-        cls.expenditures[buying_houses, t] -= (np.sum(abs(amount)) / buying_houses.size) * \
-                                              (market_price - final_price)
+        return global_price
 
-    @classmethod
-    def assign_initial_customers(cls):
-        # Initialize vector that indicates to which producer a house is buying energy. It will be producer 0.
-        vector = np.zeros(Constants.num_producers)
-        vector[0] = 1
-        # For each house, randomly shuffle that vector so that they have the same probability. Make it constant
-        # within all day
-        for i in range(Constants.num_households):
-            cls.customers[:, i] = np.tile(np.random.permutation(vector), (24, 1)).T
-        # Create adjacency matrix
-        #cls.array_to_adjacency_mat(cls.customers)
-
-    @classmethod
-    def array_to_adjacency_mat(cls, array):
-        cls.adjacency_matrix[0:Constants.num_producers,
-                             range(array.shape[0], array.shape[0] + array.shape[1])] = array
-
-    @classmethod
-    def decide_provider(cls, iteration):
-        # Decision process is been carried in an hour slot
-        for t in range(Constants.day_hours.size):
-            new_price = cls.price[iteration-1, :, t]
-
-            cheapest_producer = np.where(new_price == np.min(new_price))[0]
-            expensive_producers = np.setdiff1d(np.arange(Constants.num_producers),
-                                               cheapest_producer)
-
-            # Find customers that are going to change producer
-            changing_customers = np.where(cls.customers[expensive_producers, :, t])[1]
-            # Sort them so to get an order in which they will change
-            np.random.shuffle(changing_customers)
-
-            for i in changing_customers:
-                # Account change
-                cls.customers[expensive_producers, i, t] = 0
-                cls.customers[cheapest_producer, i, t] = 1
-                # Recompute price
-                new_mean_price = np.zeros(new_price.shape)
-                for prod in cheapest_producer.tolist() + expensive_producers.tolist():
-                    new_mean_price[prod] = cls.compute_price(iteration, prod)[t]
-                # If after change the cheapest producer is the same, we asume that customers will continue changing provider
-                # Else, stop process
-                if np.where(new_mean_price == np.min(new_mean_price))[0] != cheapest_producer:
-                    break
-
-            return
+    # @classmethod
+    # def array_to_adjacency_mat(cls, array):
+    #     cls.adjacency_matrix[0:Constants.num_producers,
+    #     range(array.shape[0], array.shape[0] + array.shape[1])] = array
 
     @classmethod
     def plot_price(cls, price):
@@ -216,9 +137,9 @@ class Cost:
         ax = plt.gca()
         ax.set_ylim(0, max(average_price))
         ax.set_xticks(np.arange(0, Constants.final_iteration_number, Constants.max_num_iterations / 100) + 1)
-        ax.set_yticks(np.arange(min(average_price), max(average_price)+1, max(average_price)/10))
+        ax.set_yticks(np.arange(min(average_price), max(average_price) + 1, max(average_price) / 10))
 
-        plt.plot(x+1, average_price)
+        plt.plot(x + 1, average_price)
         plt.title("Daily average price evolution")
         plt.xlabel("Iteration number")
         plt.ylabel("Average price")

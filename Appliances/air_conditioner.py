@@ -15,7 +15,7 @@ class AirConditioner(ApplianceType1):
     Class that represents one air conditioner
     """
 
-    def __init__(self):
+    def __init__(self, num_households):
         """
         Initialize object with common values (same for all houses)
         """
@@ -26,7 +26,7 @@ class AirConditioner(ApplianceType1):
         self.conf_temp_range = (70, 79)
         self.most_conf_temp = np.random.uniform(73, 77)
         # Matrix of inner temperature (one row per house)
-        self.temp_in = np.zeros((Constants.num_households, Constants.day_hours.size))
+        self.temp_in = np.zeros((num_households, Constants.day_hours.size))
         self.temp_out = np.array(
             [79, 81, 87, 91, 95, 98, 94, 89, 86, 85, 84, 83, 82, 81, 80, 78, 75, 73, 72, 71, 72, 73, 74, 75])
         # Demand rate range (watts per hour)

@@ -1,43 +1,32 @@
 #!/usr/bin/env python
 import numpy as np
 
-from Appliances.air_conditioner import AirConditioner
-from battery import Battery
 from constants import Constants
 from cost import Cost
-from demand_response import Demand
-from Appliances.entertainment import Entertainment
-from Appliances.lightning import Lightning
-from Appliances.phev import Phev
-from Appliances.washer import Washer
+from consumers import Consumers
 
 __author__ = 'jorge'
 
 
 def main():
-    Demand.initialize_demand()
-    Battery.initialize_battery()
 
-    air = AirConditioner()
-    washer = Washer()
-    phev = Phev()
-    light = Lightning()
-    ent = Entertainment()
-
-    appliances = np.array((air, phev, washer, light, ent))
+    np.random.seed(18765)
+    consumers = Consumers(Constants.num_blocks, [25] * Constants.num_blocks)
 
     # Compute final price of the energy (will update the demand too)
-    Cost.optimal_demand_response(appliances)
-    Demand.total_demand_per_hour()
+    price = Cost.optimal_demand_response(consumers)
 
-    Demand.plot_demand()
-    Cost.plot_price(Cost.price)
-    #Cost.plot_price(house_price)
-    Battery.plot_battery(Cost.price)
+    # for i in range(b.size):
+    #     b[i].plot_demand()
 
-    np.savetxt("expenditures.txt", np.sum(Cost.expenditures, 0))
-    np.savetxt("demand.txt", Demand.q_per_hour)
-    np.savetxt("cost.txt", Cost.price[Constants.final_iteration_number - 2])
+    # Cost.plot_price(price)
+    # #Cost.plot_price(house_price)
+    # Battery.plot_battery(Cost.price)
+
+    consumers.compute_total_measures()
+
+    np.savetxt("expenditures.txt", consumers.total_expenditures)
+    np.savetxt("demand.txt", consumers.total_demand)
 
 if __name__ == "__main__":
     main()
