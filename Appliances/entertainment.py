@@ -27,7 +27,7 @@ class Entertainment(ApplianceType3):
         self.working_hours = np.array((np.arange(12, 24),
                                        np.arange(18, 24)))
 
-    def utility(self, demand, average_demand, household):
+    def utility(self, demand, average_demand, household, b, c):
         """
         Computes the utility of one entertainment appliance
 
@@ -39,6 +39,6 @@ class Entertainment(ApplianceType3):
         if average_demand == 0:
             return 0
         else:
-            return Constants.c[household, 4] - \
-                   (Constants.b[household, 4] +
+            return c[household, 4] - \
+                   (b[household, 4] +
                     demand / average_demand) ** -1.5

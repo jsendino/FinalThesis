@@ -22,7 +22,7 @@ class Phev(ApplianceType2):
         self.working_hours = np.array((np.concatenate((np.arange(18, 24), np.arange(0, 8))),
                                        np.concatenate((np.arange(18, 24), np.arange(0, 8)))))  # Same for all households
 
-    def utility(self, total_demand, household):
+    def utility(self, total_demand, household, b, c):
         """
         Compute the total demand of PHEV (used only in working hours)
         for each costumer (one computation per house).
@@ -31,4 +31,4 @@ class Phev(ApplianceType2):
         :param household: index of the owner of the washer
         :return: integer with utility
         """
-        return Constants.b[household, 1] * total_demand + Constants.c[household, 1]
+        return b[household, 1] * total_demand + c[household, 1]

@@ -25,7 +25,7 @@ class Washer(ApplianceType2):
         self.working_hours = np.array((Constants.day_hours,
                                        np.concatenate((np.arange(18, 24), np.arange(0, 8)))))
 
-    def utility(self, total_demand, household):
+    def utility(self, total_demand, household, b, c):
         """
         Compute the total demand of washer (used only in working hours)
         for each costumer (one computation per house)
@@ -34,4 +34,4 @@ class Washer(ApplianceType2):
         :param household: index of the owner of the washer
         :return: integer with utility
         """
-        return total_demand + Constants.c[household, 2]
+        return total_demand + c[household, 2]

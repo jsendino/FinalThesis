@@ -25,7 +25,7 @@ class Lightning(ApplianceType4):
         self.working_hours = np.array((np.arange(18, 24),
                                        np.arange(18, 24)))
 
-    def utility(self, demand, average_demand, household):
+    def utility(self, demand, average_demand, household, b, c):
         """
         Computes the utility of the lightning
 
@@ -37,6 +37,6 @@ class Lightning(ApplianceType4):
         if average_demand == 0:
             return 0
         else:
-            return Constants.c[household, 3] - \
-                   (Constants.b[household, 3] +
+            return c[household, 3] - \
+                   (b[household, 3] +
                     demand / average_demand) ** -1.5

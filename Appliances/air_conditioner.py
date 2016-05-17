@@ -37,7 +37,7 @@ class AirConditioner(ApplianceType1):
         self.working_hours = np.array((Constants.day_hours,
                                        np.concatenate((np.arange(18, 24), np.arange(0, 8)))))
 
-    def utility(self, demand, household, working_hours):
+    def utility(self, demand, household, working_hours, b, c):
         """
         Computes the utility of using the air conditioner
 
@@ -46,8 +46,8 @@ class AirConditioner(ApplianceType1):
         :param household: index in houses matrix of current air conditioner
         :return: an array of the utility of this appliance for house "household" in working_hours
         """
-        utility = Constants.c[household, 0] - \
-                  Constants.b[household, 0] * \
+        utility = c[household, 0] -\
+                  b[household, 0] * \
                   ((self.compute_temp_in(demand, household) - self.most_conf_temp) ** 2)
 
         return utility[working_hours]
@@ -66,8 +66,8 @@ class AirConditioner(ApplianceType1):
             else:
                 self.temp_in[household, hour] = (1-self.alpha)**hour * self.temp_in[household, 0]
                 for t in range(1, hour+1):
-                    self.temp_in[household, hour] += (1-self.alpha) ** (hour-t) * self.alpha * self.temp_out[t] #+ \
-                                                     #(1-self.alpha) ** (hour-t) * self.beta * demand[t]
+                    self.temp_in[household, hour] += (1-self.alpha) ** (hour-t) * self.alpha * self.temp_out[t] + \
+                                                     (1-self.alpha) ** (hour-t) * self.beta * demand[t]
 
                 # if self.temp_in[household, hour] > max(self.conf_temp_range):
                 #     self.temp_in[household, hour] = max(self.conf_temp_range)

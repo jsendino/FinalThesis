@@ -10,7 +10,7 @@ class ApplianceType2(Appliance):
     __metaclass__ = ABCMeta
 
     @abstractmethod
-    def utility(self, total_demand, household):
+    def utility(self, total_demand, household, b, c):
         """
         Computes the utility that one appliance provides to each owner
 

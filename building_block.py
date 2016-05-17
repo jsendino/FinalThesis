@@ -17,7 +17,7 @@ __author__ = 'jorge'
 
 
 class BuildingBlock:
-    def __init__(self, num_households):
+    def __init__(self, num_households, possible_providers):
         self.num_households = num_households
         self.num_appliances = 5
 
@@ -39,10 +39,9 @@ class BuildingBlock:
         # Logical array with houses consuming of each producer
         self.customers = np.zeros((Constants.num_producers, self.num_households, Constants.day_hours.size), 'int')
         self.adjacency_matrix = np.zeros((Constants.num_producers + self.num_households,
-                                          Constants.num_producers + self.num_households), 'int')
-        self.possible_providers = np.sort(np.random.choice(range(Constants.num_producers),
-                                                           size=2,
-                                                           replace=False))
+                                          Constants.num_producers + self.num_households,
+                                          Constants.day_hours.size), 'int')
+        self.possible_providers = possible_providers
 
         # Money each house spends in energy by hour
         self.expenditures = np.zeros((self.num_households, Constants.day_hours.size))
@@ -65,19 +64,36 @@ class BuildingBlock:
     def assign_initial_customers(self):
         # Initialize vector that indicates to which producer a house is buying energy. It will be producer 0.
         vector = np.zeros(Constants.num_producers)
-        vector[0] = 1
+        #vector[np.random.choice(self.possible_providers)] = 1
+        vector[self.possible_providers[0]] = 1
         # For each house, randomly shuffle that vector so that they have the same probability. Make it constant
         # within all day
 
         for i in range(self.num_households):
-            self.customers[:, i] = np.tile(np.random.permutation(vector), (24, 1)).T
-            # Create adjacency matrix
-            # cls.array_to_adjacency_mat(cls.customers)
+            # self.customers[:, i] = np.tile(np.random.permutation(vector), (24, 1)).T
+            self.customers[:, i] = np.tile(vector, (24, 1)).T
+        # Create adjacency matrix
+        self.update_adjacency_mat()
+
+    def get_initial_bids(self, iteration, t):
+        demand = self.demand.total_house_demand[iteration, :, t]
+
+        return Cost.energy_price(demand, self.num_households)
+
+    def update_adjacency_mat(self):
+        self.adjacency_matrix[0:Constants.num_producers,
+        range(Constants.num_producers,
+              Constants.num_producers + self.num_households)] = self.customers
 
     def decide_provider(self, global_price, t, iteration):
         # Consider price only from those providers that are reachable
         possible_price = global_price[self.possible_providers]
-        cheapest_producer = np.where(global_price == np.min(possible_price))[0]
+        cheapest_producer = np.intersect1d(np.where(global_price == np.min(possible_price))[0],
+                                           self.possible_providers)
+        # If two possible producers with same price, choice randomly
+        if len(cheapest_producer) > 1:
+            cheapest_producer = np.random.choice(cheapest_producer)
+
         expensive_producers = np.setdiff1d(self.possible_providers,
                                            cheapest_producer)
 
@@ -93,6 +109,8 @@ class BuildingBlock:
 
         self.customers[old_producer, changing_customers, t], self.customers[new_producer, changing_customers, t] = \
             self.customers[new_producer, changing_customers, t], self.customers[old_producer, changing_customers, t]
+
+        self.update_adjacency_mat()
 
     def update_parameters(self, iteration, price, appliances):
         for house in range(self.num_households):

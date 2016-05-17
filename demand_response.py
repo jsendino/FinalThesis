@@ -35,10 +35,19 @@ class Demand:
 
         self.initialize_demand(num_households, num_appliances)
 
+        # Constants matrix
+        self.a = np.ones((num_households, 5))
+        self.b = np.ones((num_households, 5))
+        self.c = np.ones((num_households, 5))
+
     @staticmethod
     def get_initial_demand(num_households, num_appliances):
-        demand = np.reshape(np.loadtxt("initial_demand.txt"),
-                            [num_households, num_appliances, Constants.day_hours.size])
+        demand = np.zeros((num_households,
+                          num_appliances,
+                          Constants.day_hours.size))
+
+        demand[range(0, int(num_households/2))] = np.loadtxt("initial_demand_type1.txt")
+        demand[range(int(num_households/2), num_households)] = np.loadtxt("initial_demand_type2.txt")
 
         return demand * 2
 
@@ -108,14 +117,14 @@ class Demand:
         base_class = appliances[i]._base_class
         if base_class == "ApplianceType1":
             x = self.demand[household, i]
-            arg = (household, working_hours,)
+            arg = (household, working_hours, self.b, self.c,)
         elif base_class == "ApplianceType2":
             x = np.sum(self.demand[household, i, working_hours])
-            arg = (household,)
+            arg = (household, self.b, self.c)
         else:
             average = self.average_demand(household, i, working_hours)
             x = self.demand[household, i, working_hours]
-            arg = (average, household,)
+            arg = (average, household, self.b, self.c)
         utility_derivative = scipy.misc.derivative(appliances[i].utility,
                                                    x,
                                                    dx=0.01,
