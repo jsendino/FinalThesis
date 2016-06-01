@@ -3,6 +3,7 @@
 Module with all the air conditioner parameters, an some functions related to it
 """
 import numpy as np
+import scipy
 
 from Appliances.appliance_type_1 import ApplianceType1
 from constants import Constants

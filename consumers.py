@@ -9,6 +9,7 @@ from constants import Constants
 from cost import Cost
 from itertools import chain
 
+
 class Consumers:
     def __init__(self, num_blocks, num_households, possible_providers):
         self.blocks = np.array(([BuildingBlock(num_households[0], 0)] * num_blocks))
@@ -120,8 +121,3 @@ class Consumers:
                                   row_range,
                                   (Constants.num_producers + accumulated_houses[i]):
                                   (Constants.num_producers + accumulated_houses[i] + self.num_households[i])] = matrix
-
-    # def reset_adj_matrix(self):
-    #     self.adjacency_matrix = np.zeros((Constants.day_hours.size,
-    #                                       Constants.num_producers+Constants.num_blocks,
-    #                                       Constants.num_producers+Constants.num_blocks))

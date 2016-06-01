@@ -3,6 +3,7 @@
 Module with parameters to characterize an entertainment type appliance. Also contains the function to obtain its utility
 """
 import numpy as np
+import scipy
 
 from Appliances.appliance_type_3 import ApplianceType3
 from constants import Constants

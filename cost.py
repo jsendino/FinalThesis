@@ -102,16 +102,19 @@ class Cost:
                 total_demand = consumers.get_demand_by_prod(i, prod, range(Constants.day_hours.size))
                 global_price[i, prod] = cls.energy_price(total_demand, consumers.num_total_households)
 
+            # Uncomment when using double auction
             auction_price[i] = cls.auction(consumers, global_price[i], i)
             global_price[i, :] = auction_price[i, :]
 
             # Now prices has been established, each house can decide from which provider be served in next iteration
+            # (Comment when using auction)
             # consumers.decide_provider(i, global_price[i])
+
             # Detect if algorithm has converged. If so, stop iterations
-            n_samples_mean = auction_price[range(i - Cost.range, i+1), :]
+            n_samples_mean = global_price[range(i - Cost.range, i+1), :]
             if i > cls.range and \
-                    np.logical_and(auction_price[i] * (1 - Cost.epsilon) <= n_samples_mean,
-                                   n_samples_mean <= auction_price[i] * (1 + Cost.epsilon)).all():
+                    np.logical_and(global_price[i] * (1 - Cost.epsilon) <= n_samples_mean,
+                                   n_samples_mean <= global_price[i] * (1 + Cost.epsilon)).all():
                 break
             # For every house, take price for all the day based on the provider decision every house has made
             # and adapt demand
@@ -126,23 +129,26 @@ class Cost:
 
     @classmethod
     def auction(cls, consumers, costs, iteration):
+        return cls.simple_auction(consumers, costs, iteration)
+        # return cls.average_auction(consumers, costs, iteration)
+        # return cls.random_auction(consumers, costs, iteration)
+
+
+    @classmethod
+    def random_auction(cls, consumers, costs, iteration):
         sellers = range(Constants.num_producers)
         buyers = range(consumers.num_total_households)
-
+        # Initial buy prices for each household
         redemptions = np.zeros((consumers.num_total_households, Constants.day_hours.size))
         for i in range(Constants.day_hours.size):
             redemptions[:, i] = consumers.get_initial_bids(iteration, i)
 
-        transactions = []
-        alltrans = []
-        gain = 0
         last = np.tile(-999, Constants.day_hours.size)
         for r in range(consumers.num_total_households):
-            ask =  np.tile(100.0, Constants.day_hours.size)
-            seller = -1
+            ask = np.tile(100.0, Constants.day_hours.size)
             bid = np.tile(0.0, Constants.day_hours.size)
-            buyer = -1
             for r in range(100):
+                # Toss a coin, and increment sell prices above cost or decrement buy prices
                 if np.random.random() < 0.5:
                     i = np.random.choice(sellers)
                     new_ask = np.random.random() * (100 - costs[i]) + costs[i]
@@ -150,24 +156,67 @@ class Cost:
                     if np.all(new_ask < ask):
                         ask = new_ask
                         last = ask
-                        seller = i
                 else:
                     j = np.random.choice(buyers)
                     new_bid = np.random.random() * redemptions[j]
                     if np.all(new_bid > bid):
                         bid = new_bid
                         last = bid
-                        buyer = j
+                # When buy price is above sell price, stop auction
                 if np.all(ask < bid):
-                    # sellers -= {seller}
-                    # buyers -= {buyer}
-                    # transactions.append(last)
-                    # assert last >= costs[seller]
-                    # assert last <= redemptions[buyer]
-                    # gain += (redemptions[buyer] - costs[seller])
                     break
-
         return last
+
+    @classmethod
+    def average_auction(cls, consumers, asks, iteration):
+        price = np.zeros(Constants.day_hours.size)
+        # Sort asks in increasing order
+        asks.sort(0)
+        for t in range(Constants.day_hours.size):
+            # Order bids in descending order
+            bids = np.sort(consumers.get_initial_bids(iteration, t))[::-1]
+            # Initial buy price will the the higher
+            new_bid = bids[0]
+            different_asks = np.unique(asks[:, t])
+            last_ask = different_asks[0]
+            for i in range(min(len(different_asks), len(bids))):
+                # For every sell price (starting from the lower) find those buying prices higher than it
+                new_ask = different_asks[i]
+                higher_bids = np.where(bids >= new_ask)[0]
+                # If no buyer price is higher, auction is finished and the price is computed as the average
+                if higher_bids.size == 0:
+                    break
+                # Else, continue auction with higher sell price
+                new_bid = bids[max(higher_bids)]
+                last_ask = new_ask
+            price[t] = (last_ask + new_bid) / 2
+        return price
+
+    @classmethod
+    def simple_auction(cls, consumers, asks, iteration):
+        price = np.zeros(Constants.day_hours.size)
+        # Sort asks in increasing order
+        asks.sort(0)
+        for t in range(Constants.day_hours.size):
+            # Order bids in descending order
+            bids = np.sort(consumers.get_initial_bids(iteration, t))[::-1]
+            # Initial buy price will the the higher
+            new_bid = bids[0]
+            different_asks = np.unique(asks[:, t])
+            last_ask = different_asks[0]
+            for i in range(min(len(different_asks), len(bids))):
+                # For every sell price (starting from the lower) find those buying prices higher than it
+                new_ask = different_asks[i]
+                higher_bids = np.where(bids >= new_ask)[0]
+                # If no buyer price is higher, auction is finished and the price is computed as the average
+                if higher_bids.size == 0:
+                    break
+                # Else, continue auction with higher sell price
+                new_bid = bids[max(higher_bids)]
+                last_ask = new_ask
+            price[t] = new_bid
+        return price
+
 
     @classmethod
     def plot_price(cls, price):
